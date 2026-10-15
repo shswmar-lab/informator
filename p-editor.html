@@ -1,0 +1,901 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Редактор p.txt — Автоинформатор</title>
+<style>
+:root{
+  --bg:#14171c;--bg2:#1b2027;--bg3:#232a33;--line:#2e3742;--fg:#e6ebf2;--muted:#8b98a8;
+  --acc:#4ea1ff;--acc2:#2b6fb5;--ok:#3fb950;--warn:#d29922;--err:#f85149;--info:#58a6ff;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:13px/1.45 "Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--fg);display:flex;flex-direction:column;overflow:hidden}
+header{background:var(--bg2);border-bottom:1px solid var(--line);padding:8px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.title{font-weight:600;margin-right:8px}
+.title code{background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--acc)}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button{background:var(--bg3);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 10px;cursor:pointer;font:inherit}
+button:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--acc2);border-color:var(--acc2);color:#fff}
+button.primary:hover{background:var(--acc);color:#fff}
+button.danger:hover{border-color:var(--err);color:var(--err)}
+select,input[type=text],input[type=number],textarea{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)}
+.status{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+.status.dirty{color:var(--warn)}
+nav.tabs{display:flex;gap:2px;background:var(--bg2);border-bottom:1px solid var(--line);padding:0 8px}
+nav.tabs button{background:transparent;border:none;border-bottom:2px solid transparent;border-radius:0;padding:8px 14px;color:var(--muted)}
+nav.tabs button.active{color:var(--fg);border-bottom-color:var(--acc)}
+nav.tabs button:hover{color:var(--fg)}
+main{flex:1;min-height:0;position:relative}
+.tab{display:none;height:100%}
+.tab.active{display:flex}
+.col{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line)}
+.col.routes{width:280px;flex:0 0 auto}
+.col.stops{width:300px;flex:0 0 auto}
+.col.editor{flex:1;min-width:0;border-right:none}
+.colhead{padding:8px 10px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;background:var(--bg2);font-weight:600;color:var(--muted)}
+.colhead .sp{margin-left:auto}
+.colhead button{padding:2px 8px;font-size:12px}
+ul.list{list-style:none;margin:0;padding:4px;overflow:auto;flex:1;min-height:0}
+ul.list li{padding:6px 8px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px}
+ul.list li:hover{background:var(--bg3)}
+ul.list li.sel{background:var(--acc2);color:#fff}
+ul.list li .badge{margin-left:auto;background:var(--bg);color:var(--muted);border-radius:10px;padding:0 7px;font-size:11px;border:1px solid var(--line)}
+ul.list li.sel .badge{background:rgba(255,255,255,.15);color:#fff}
+.editor-body{padding:12px;overflow:auto;flex:1;min-height:0}
+.empty{color:var(--muted);padding:20px}
+.fld{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.fld>span{color:var(--muted);font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>.fld{flex:1;min-width:110px}
+.group{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:12px;background:var(--bg2)}
+.group>h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.chk{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.chk input{width:16px;height:16px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.hint{color:var(--muted);font-size:11px;margin-top:3px}
+.tag{display:inline-block;background:var(--bg3);border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin:0 4px 4px 0;font-size:11px}
+.report{overflow:auto;flex:1;min-height:0;padding:8px}
+table.find{width:100%;border-collapse:collapse}
+table.find th,table.find td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.find tr.clickable{cursor:pointer}
+table.find tr.clickable:hover{background:var(--bg3)}
+.sev{font-weight:600;font-size:11px;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.sev.error{background:rgba(248,81,73,.15);color:var(--err)}
+.sev.warn{background:rgba(210,153,34,.15);color:var(--warn)}
+.sev.info{background:rgba(88,166,255,.15);color:var(--info)}
+.summary{display:flex;gap:14px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--bg2);flex-wrap:wrap}
+.summary b{color:var(--fg)}
+.muted{color:var(--muted)}
+.dropzone{border:2px dashed var(--line);border-radius:10px;padding:40px;text-align:center;color:var(--muted);margin:20px}
+.dropzone.hover{border-color:var(--acc);color:var(--acc)}
+.help{color:var(--muted);font-size:12px}
+code.k{background:var(--bg3);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">Редактор <code>p.txt</code></div>
+  <div class="toolbar">
+    <button id="btnImport">Импорт</button>
+    <button id="btnExport" class="primary">Экспорт p.txt</button>
+    <button id="btnS">Загрузить s</button>
+    <button id="btnValidate">Проверить</button>
+    <button id="btnUndo">Отменить</button>
+    <button id="btnRedo">Вернуть</button>
+    <select id="clearScope" title="Область очистки">
+      <option value="all">Всё</option>
+      <option value="routes">Только маршруты</option>
+      <option value="dest">Только конечные</option>
+      <option value="special">Только спецрежимы</option>
+    </select>
+    <button id="btnClear" class="danger">Очистить</button>
+    <input id="search" type="text" placeholder="Поиск остановки/токена" style="width:180px">
+  </div>
+  <div id="status" class="status">файл не загружен</div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="routes" class="active">Маршруты</button>
+  <button data-tab="dest">Конечные</button>
+  <button data-tab="special">Спецрежимы</button>
+  <button data-tab="report">Отчёт</button>
+</nav>
+
+<main>
+  <section id="tab-routes" class="tab active">
+    <div class="col routes">
+      <div class="colhead">Маршруты <span class="sp"></span><button id="addRoute">+</button><button id="delRoute" class="danger">−</button></div>
+      <ul id="routeList" class="list"></ul>
+    </div>
+    <div class="col stops">
+      <div class="colhead">Остановки <span class="sp"></span><button id="addStop">+</button><button id="delStop" class="danger">−</button></div>
+      <ul id="stopList" class="list"></ul>
+    </div>
+    <div class="col editor">
+      <div class="colhead">Карточка остановки</div>
+      <div id="stopEditor" class="editor-body"></div>
+    </div>
+  </section>
+
+  <section id="tab-dest" class="tab">
+    <div class="col routes">
+      <div class="colhead">Конечные пункты <span class="sp"></span><button id="addDest">+</button><button id="delDest" class="danger">−</button></div>
+      <ul id="destList" class="list"></ul>
+    </div>
+    <div class="col editor">
+      <div class="colhead">Блок конечных (табло)</div>
+      <div id="destEditor" class="editor-body"></div>
+    </div>
+  </section>
+
+  <section id="tab-special" class="tab">
+    <div class="col routes">
+      <div class="colhead">Спецрежимы <span class="sp"></span><button id="addSpecial">+</button><button id="delSpecial" class="danger">−</button></div>
+      <ul id="specialList" class="list"></ul>
+    </div>
+    <div class="col editor">
+      <div class="colhead">Блок спецрежима</div>
+      <div id="specialEditor" class="editor-body"></div>
+    </div>
+  </section>
+
+  <section id="tab-report" class="tab" style="flex-direction:column">
+    <div class="summary" id="reportSummary">
+      <span>Нажмите <b>Проверить</b> для формирования отчёта.</span>
+    </div>
+    <div class="report" id="report"><div class="empty">Отчёт пуст.</div></div>
+  </section>
+</main>
+
+<input type="file" id="fileInput" accept=".txt,text/plain" hidden>
+<input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+<datalist id="tokenList"></datalist>
+
+<script>
+"use strict";
+var $ = function(s){ return document.querySelector(s); };
+
+var dec = new TextDecoder('windows-1251');
+var byteChar = [];
+for (var b = 0; b < 256; b++) byteChar[b] = dec.decode(new Uint8Array([b]));
+var charByte = {};
+for (var b2 = 0; b2 < 256; b2++) charByte[byteChar[b2]] = b2;
+
+function encodeCp1251(str){
+  var out = new Uint8Array(str.length);
+  var n = 0;
+  for (var i = 0; i < str.length; i++){
+    var code = str.charCodeAt(i);
+    var ch = str[i];
+    var by = charByte[ch];
+    out[n++] = (by === undefined) ? 0x3F : by;
+  }
+  return out.subarray(0, n);
+}
+function decodeCp1251(buf){ return dec.decode(new Uint8Array(buf)); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+function norm(s){ return String(s).toLowerCase().replace(/[\s.,()"'«»–—-]/g,''); }
+
+function splitPair(s){
+  var p = s.split(',');
+  if (p.length < 2) return null;
+  return [p[0].trim(), p[1].trim()];
+}
+function parsePhases(script){
+  return script.split('\\').map(function(ph){
+    return ph.split(',').map(function(t){ return t.trim(); });
+  });
+}
+function parseStop(s){
+  var m = s.match(/^\(([^)]*)\)\(([^)]*)\)([\s\S]*)\^([\s\S]*)$/);
+  if (!m) return null;
+  var c1 = splitPair(m[1]), c2 = splitPair(m[2]);
+  if (!c1 || !c2) return null;
+  return { c:[c1,c2], name:m[3], phases:parsePhases(m[4]) };
+}
+function parseSpecialEntry(s){
+  var i = s.indexOf('^');
+  if (i < 0) return null;
+  return { name:s.slice(0,i), phases:parsePhases(s.slice(i+1)) };
+}
+function classify(s){
+  if (s === '') return { kind:'blank' };
+  if (/^~+\s*$/.test(s)) return { kind:'tilde' };
+  if (s.charAt(0) === '|'){
+    if (s.charAt(1) === '*'){
+      var mr = s.match(/^\|\*([^*]*)\*\^([\s\S]*)$/);
+      return { kind:'routeHeader', data:{ id: mr ? mr[1] : '', name: mr ? mr[2] : s } };
+    }
+    if (s.charAt(1) === '@'){
+      var ms = s.match(/^\|@-?([\s\S]*)$/);
+      return { kind:'specialHeader', data:{ name: ms ? ms[1] : '' } };
+    }
+    var md = s.match(/^\|([^\^]*)\^([\s\S]*)$/);
+    return { kind:'destHeader', data: md ? { no:md[1].trim(), name:md[2] } : { no:s, name:'' } };
+  }
+  if (s.charAt(0) === '('){
+    var d = parseStop(s);
+    if (d) return { kind:'stop', data:d };
+  }
+  if (s.indexOf('^') >= 0){
+    var se = parseSpecialEntry(s);
+    if (se) return { kind:'specialEntry', data:se };
+  }
+  return { kind:'other', text:s };
+}
+function classifyLine(raw){
+  if (raw.charAt(0) === '#'){
+    var sub = classify(raw.slice(1));
+    return { kind:'endpoint', endpoint:true, sub:sub };
+  }
+  return classify(raw);
+}
+function isEndpoint(L){ return L.kind === 'endpoint'; }
+function isStopLine(L){ return L.kind === 'stop' || (L.kind === 'endpoint' && L.sub && L.sub.kind === 'stop'); }
+function getStopData(L){ return L.kind === 'stop' ? L.data : L.sub.data; }
+function routeStops(r){ var a = []; for (var i = 0; i < r.body.length; i++){ if (isStopLine(doc.lines[r.body[i]])) a.push(r.body[i]); } return a; }
+
+function buildDoc(raws){
+  var lines = raws.map(function(r){ var L = classifyLine(r); L.raw = r; return L; });
+  var routes = [], dests = [], specials = [];
+  var cur = null;
+  for (var i = 0; i < lines.length; i++){
+    var L = lines[i];
+    if (L.kind === 'routeHeader'){ cur = { type:'route', index:i, data:L.data, body:[] }; routes.push(cur); }
+    else if (L.kind === 'destHeader'){ cur = { type:'dest', index:i, data:L.data, body:[] }; dests.push(cur); }
+    else if (L.kind === 'specialHeader'){ cur = { type:'special', index:i, data:L.data, body:[] }; specials.push(cur); }
+    else if (L.kind === 'tilde'){ cur = null; }
+    else if (cur){ cur.body.push(i); }
+  }
+  return { lines:lines, routes:routes, dests:dests, specials:specials };
+}
+
+function stopRaw(d){
+  var c = d.c;
+  return (d.endpoint ? '#' : '') + '(' + c[0][0] + ', ' + c[0][1] + ')(' + c[1][0] + ', ' + c[1][1] + ')' + d.name + '^' + d.phases.map(function(p){ return p.join(','); }).join('\\');
+}
+function regenLine(L){
+  if (L.kind === 'stop'){ L.raw = stopRaw(L.data); }
+  else if (L.kind === 'endpoint' && L.sub && L.sub.kind === 'stop'){ L.raw = '#' + stopRaw(L.sub.data); }
+  else if (L.kind === 'endpoint'){ L.raw = '#' + (L.sub && L.sub.text != null ? L.sub.text : (L.sub && L.sub.kind === 'specialEntry' && L.sub.data ? L.sub.data.name + '^' + L.sub.data.phases.map(function(p){ return p.join(','); }).join('\\') : L.raw.slice(1))); }
+  else if (L.kind === 'routeHeader'){ L.raw = '|*' + L.data.id + '*^' + L.data.name; }
+  else if (L.kind === 'destHeader'){ L.raw = '|' + L.data.no + '^' + L.data.name; }
+  else if (L.kind === 'specialHeader'){ L.raw = '|@-' + L.data.name; }
+  else if (L.kind === 'specialEntry'){ L.raw = L.data.name + '^' + L.data.phases.map(function(p){ return p.join(','); }).join('\\'); }
+  else if (L.kind === 'other'){ L.raw = L.text != null ? L.text : L.raw; }
+}
+
+var doc = null;
+var sFiles = null;
+var dirty = false;
+var fileName = '';
+var selRoute = 0, selStop = 0, selDest = 0, selSpecial = 0;
+var undoStack = [], redoStack = [];
+
+function currentRaws(){ return doc ? doc.lines.map(function(l){ return l.raw; }) : []; }
+function markDirty(){ dirty = true; updateStatus(); }
+function updateStatus(){
+  if (!doc){ $('#status').textContent = 'файл не загружен'; $('#status').className = 'status'; return; }
+  var stops = 0, ends = 0;
+  for (var i = 0; i < doc.lines.length; i++){ if (isStopLine(doc.lines[i])){ stops++; if (isEndpoint(doc.lines[i])) ends++; } }
+  $('#status').textContent = (fileName || 'p.txt') + ' · строк: ' + doc.lines.length + ' · остановок: ' + stops + ' · конечных: ' + ends + (sFiles ? ' · s: ' + sFiles.size : '') + (dirty ? ' ●' : '');
+  $('#status').className = 'status' + (dirty ? ' dirty' : '');
+}
+function setLines(raws){
+  doc = buildDoc(raws);
+  if (selRoute >= doc.routes.length) selRoute = Math.max(0, doc.routes.length - 1);
+  if (selDest >= doc.dests.length) selDest = Math.max(0, doc.dests.length - 1);
+  if (selSpecial >= doc.specials.length) selSpecial = Math.max(0, doc.specials.length - 1);
+  render();
+  updateStatus();
+  updateUndoButtons();
+}
+function reparse(){ doc = buildDoc(currentRaws()); }
+function snapshot(){ undoStack.push(currentRaws()); if (undoStack.length > 60) undoStack.shift(); redoStack.length = 0; updateUndoButtons(); }
+function undo(){ if (!undoStack.length) return; redoStack.push(currentRaws()); setLines(undoStack.pop()); markDirty(); }
+function redo(){ if (!redoStack.length) return; undoStack.push(currentRaws()); setLines(redoStack.pop()); markDirty(); }
+function updateUndoButtons(){ $('#btnUndo').disabled = !undoStack.length; $('#btnRedo').disabled = !redoStack.length; }
+
+function field(label, value, onchange, type){
+  var wrap = document.createElement('label'); wrap.className = 'fld';
+  var cap = document.createElement('span'); cap.textContent = label;
+  var inp = document.createElement('input'); inp.type = type || 'text'; inp.value = value == null ? '' : value;
+  if (label.indexOf('токен') >= 0 || label.indexOf('фаза') >= 0) inp.setAttribute('list','tokenList');
+  inp.onchange = function(){ onchange(inp.value); };
+  wrap.appendChild(cap); wrap.appendChild(inp);
+  return wrap;
+}
+function group(title){
+  var g = document.createElement('div'); g.className = 'group';
+  var h = document.createElement('h4'); h.textContent = title; g.appendChild(h);
+  return g;
+}
+
+function mutateStop(lineIdx, fn){
+  snapshot();
+  fn(getStopData(doc.lines[lineIdx]));
+  regenLine(doc.lines[lineIdx]);
+  reparse();
+  markDirty();
+  render();
+}
+function setEndpointStop(lineIdx, flag){
+  snapshot();
+  var L = doc.lines[lineIdx];
+  if (flag && L.kind === 'stop'){ L.kind = 'endpoint'; L.endpoint = true; L.sub = { kind:'stop', data:L.data }; delete L.data; regenLine(L); }
+  else if (!flag && L.kind === 'endpoint' && L.sub && L.sub.kind === 'stop'){ L.kind = 'stop'; delete L.endpoint; L.data = L.sub.data; delete L.sub; regenLine(L); }
+  reparse(); markDirty(); render();
+}
+function setEndpointLine(lineIdx, flag){
+  snapshot();
+  var L = doc.lines[lineIdx];
+  if (flag && L.kind !== 'endpoint'){
+    L.sub = { kind:L.kind };
+    if (L.data) L.sub.data = L.data;
+    if (L.text != null) L.sub.text = L.text;
+    L.kind = 'endpoint'; L.endpoint = true; delete L.data; delete L.text;
+  } else if (!flag && L.kind === 'endpoint'){
+    L.kind = L.sub.kind; delete L.endpoint;
+    if (L.sub.data) L.data = L.sub.data;
+    if (L.sub.text != null) L.text = L.sub.text;
+    delete L.sub;
+  }
+  regenLine(L);
+  reparse(); markDirty(); render();
+}
+
+function renderRoutes(){
+  var list = $('#routeList'); list.innerHTML = '';
+  for (var i = 0; i < doc.routes.length; i++){
+    (function(idx){
+      var r = doc.routes[idx];
+      var li = document.createElement('li');
+      var span = document.createElement('span');
+      span.textContent = (r.data.id || '(пусто)') + ' · ' + r.data.name;
+      li.appendChild(span);
+      var badge = document.createElement('span'); badge.className = 'badge';
+      badge.textContent = routeStops(r).length;
+      li.appendChild(badge);
+      if (idx === selRoute) li.classList.add('sel');
+      li.onclick = function(){ selRoute = idx; selStop = 0; render(); };
+      list.appendChild(li);
+    })(i);
+  }
+  if (!doc.routes.length) list.innerHTML = '<li class="muted">нет маршрутов</li>';
+}
+function renderStops(){
+  var list = $('#stopList'); list.innerHTML = '';
+  var r = doc.routes[selRoute];
+  if (!r){ list.innerHTML = '<li class="muted">выберите маршрут</li>'; return; }
+  var q = $('#search').value.trim().toLowerCase();
+  var shown = 0;
+  var stops = routeStops(r);
+  for (var pos = 0; pos < stops.length; pos++){
+    var L = doc.lines[stops[pos]];
+    var d = getStopData(L);
+    var text = (d.name + ' ' + d.phases.flat().join(',')).toLowerCase();
+    if (q && text.indexOf(q) < 0) continue;
+    (function(p){
+      var dd = getStopData(doc.lines[stops[p]]);
+      var li = document.createElement('li');
+      li.textContent = dd.name || '(без имени)';
+      if (isEndpoint(doc.lines[stops[p]])){
+        var bd = document.createElement('span'); bd.className = 'badge'; bd.textContent = 'Н/К'; bd.title = 'начальная/конечная остановка';
+        li.appendChild(bd);
+      }
+      if (p === selStop) li.classList.add('sel');
+      li.onclick = function(){ selStop = p; renderStops(); renderStopEditor(); };
+      list.appendChild(li);
+    })(pos);
+    shown++;
+  }
+  if (!shown) list.innerHTML = '<li class="muted">нет остановок' + (q ? ' по запросу' : '') + '</li>';
+}
+function renderStopEditor(){
+  var box = $('#stopEditor'); box.innerHTML = '';
+  var r = doc.routes[selRoute];
+  if (!r){ box.innerHTML = '<div class="empty">Выберите маршрут</div>'; return; }
+  var stops = routeStops(r);
+  if (selStop == null || selStop >= stops.length){ box.innerHTML = '<div class="empty">Выберите остановку</div>'; return; }
+  var lineIdx = stops[selStop];
+  var L = doc.lines[lineIdx];
+  var d = getStopData(L);
+
+  var g1 = group('Основное');
+  var chk = document.createElement('label'); chk.className = 'chk';
+  var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = isEndpoint(L);
+  cb.onchange = function(){ setEndpointStop(lineIdx, cb.checked); };
+  chk.appendChild(cb); chk.appendChild(document.createTextNode('Начальная/конечная остановка (строка начинается с #)'));
+  g1.appendChild(chk);
+  g1.appendChild(field('Имя остановки', d.name, function(v){ mutateStop(lineIdx, function(dd){ dd.name = v; }); }));
+
+  var g2 = group('Координаты (2 пары створа)');
+  var row1 = document.createElement('div'); row1.className = 'row';
+  row1.appendChild(field('Широта 1', d.c[0][0], function(v){ mutateStop(lineIdx, function(dd){ dd.c[0][0] = v.trim(); }); }, 'text'));
+  row1.appendChild(field('Долгота 1', d.c[0][1], function(v){ mutateStop(lineIdx, function(dd){ dd.c[0][1] = v.trim(); }); }, 'text'));
+  var row2 = document.createElement('div'); row2.className = 'row';
+  row2.appendChild(field('Широта 2', d.c[1][0], function(v){ mutateStop(lineIdx, function(dd){ dd.c[1][0] = v.trim(); }); }, 'text'));
+  row2.appendChild(field('Долгота 2', d.c[1][1], function(v){ mutateStop(lineIdx, function(dd){ dd.c[1][1] = v.trim(); }); }, 'text'));
+  g2.appendChild(row1); g2.appendChild(row2);
+  var hint = document.createElement('div'); hint.className = 'hint'; hint.textContent = 'Формат как в файле, напр. 47.0994 и 037.4933';
+  g2.appendChild(hint);
+
+  var g3 = group('Сценарий воспроизведения');
+  g3.appendChild(field('Фаза 1 (предобъявление), токены через запятую', d.phases[0] ? d.phases[0].join(',') : '', function(v){
+    mutateStop(lineIdx, function(dd){ dd.phases[0] = v.split(',').map(function(t){ return t.trim(); }); });
+  }));
+  var hasP2 = d.phases.length > 1;
+  var chk2 = document.createElement('label'); chk2.className = 'chk';
+  var cb2 = document.createElement('input'); cb2.type = 'checkbox'; cb2.checked = hasP2;
+  chk2.appendChild(cb2); chk2.appendChild(document.createTextNode('Есть фаза 2 (объявление по прибытии, после "\\")'));
+  g3.appendChild(chk2);
+  var p2 = field('Фаза 2, токены через запятую', hasP2 ? d.phases[1].join(',') : '', function(v){
+    mutateStop(lineIdx, function(dd){
+      if (dd.phases.length < 2) dd.phases.push([]);
+      dd.phases[1] = v.split(',').map(function(t){ return t.trim(); });
+    });
+  });
+  p2.style.display = hasP2 ? 'flex' : 'none';
+  g3.appendChild(p2);
+  cb2.onchange = function(){
+    mutateStop(lineIdx, function(dd){
+      if (cb2.checked){ if (dd.phases.length < 2) dd.phases.push([]); }
+      else { dd.phases = [dd.phases[0] || []]; }
+    });
+  };
+  var tk = document.createElement('div'); tk.className = 'hint'; tk.textContent = 'Токен = имя файла без .wav. Разделитель "\\" между фазами, "," внутри фазы.';
+  g3.appendChild(tk);
+  if (sFiles){
+    var tags = document.createElement('div');
+    d.phases.forEach(function(ph){ ph.forEach(function(t){ if (t){ var s = document.createElement('span'); s.className = 'tag'; s.textContent = t; tags.appendChild(s); } }); });
+    g3.appendChild(tags);
+  }
+
+  var g4 = group('Операции');
+  var acts = document.createElement('div'); acts.className = 'actions';
+  var bDup = document.createElement('button'); bDup.textContent = 'Дублировать';
+  bDup.onclick = function(){ duplicateStop(lineIdx); };
+  var bDel = document.createElement('button'); bDel.className = 'danger'; bDel.textContent = 'Удалить остановку';
+  bDel.onclick = function(){ deleteStop(lineIdx); };
+  acts.appendChild(bDup); acts.appendChild(bDel);
+  g4.appendChild(acts);
+
+  box.appendChild(g1); box.appendChild(g2); box.appendChild(g3); box.appendChild(g4);
+}
+
+function duplicateStop(lineIdx){
+  snapshot();
+  var L = doc.lines[lineIdx];
+  var copy = JSON.parse(JSON.stringify(L));
+  doc.lines.splice(lineIdx + 1, 0, copy);
+  reparse(); markDirty(); render();
+}
+function deleteStop(lineIdx){
+  if (!confirm('Удалить остановку?')) return;
+  snapshot();
+  doc.lines.splice(lineIdx, 1);
+  reparse(); markDirty();
+  selStop = Math.max(0, selStop - 1);
+  render();
+}
+function addStop(){
+  if (!doc || !doc.routes.length){ alert('Сначала выберите маршрут.'); return; }
+  snapshot();
+  var r = doc.routes[selRoute];
+  var stops = routeStops(r);
+  var insertAt = stops.length ? stops[selStop] + 1 : r.index + 1;
+  doc.lines.splice(insertAt, 0, { raw:'(0.0000, 0.0000)(0.0000, 0.0000)Новая остановка^Следующая остановка,Новая остановка\\Колокол,Новая остановка' });
+  reparse(); markDirty(); render();
+}
+function addRoute(){
+  if (!doc){ alert('Сначала загрузите файл или очистите конфигурацию.'); return; }
+  snapshot();
+  var insertAt;
+  if (doc.routes.length){
+    var last = doc.routes[doc.routes.length - 1];
+    insertAt = (last.body.length ? last.body[last.body.length - 1] : last.index) + 1;
+  } else {
+    var ti = -1; for (var i = 0; i < doc.lines.length; i++){ if (doc.lines[i].kind === 'tilde'){ ti = i; break; } }
+    insertAt = ti >= 0 ? ti : doc.lines.length;
+  }
+  doc.lines.splice(insertAt, 0, { raw:'|*NEW*^Автобус. мар. №NEW' });
+  reparse(); markDirty();
+  selRoute = doc.routes.length - 1; selStop = 0;
+  render();
+}
+function deleteRoute(){
+  if (!doc || !doc.routes.length) return;
+  if (!confirm('Удалить маршрут со всеми остановками?')) return;
+  snapshot();
+  var r = doc.routes[selRoute];
+  var del = {}; del[r.index] = 1; r.body.forEach(function(i){ del[i] = 1; });
+  var raws = currentRaws().filter(function(x, i){ return !del[i]; });
+  setLines(raws); markDirty();
+}
+
+function renderDestList(){
+  var list = $('#destList'); list.innerHTML = '';
+  for (var i = 0; i < doc.dests.length; i++){
+    (function(idx){
+      var d = doc.dests[idx];
+      var li = document.createElement('li');
+      li.textContent = '№' + (d.data.no || '(?)') + ' · ' + d.data.name;
+      if (idx === selDest) li.classList.add('sel');
+      li.onclick = function(){ selDest = idx; renderDestList(); renderDestEditor(); };
+      list.appendChild(li);
+    })(i);
+  }
+  if (!doc.dests.length) list.innerHTML = '<li class="muted">нет блоков конечных</li>';
+}
+function renderDestEditor(){
+  var box = $('#destEditor'); box.innerHTML = '';
+  var d = doc.dests[selDest];
+  if (!d){ box.innerHTML = '<div class="empty">Выберите блок конечных</div>'; return; }
+  var g1 = group('Заголовок блока');
+  var row = document.createElement('div'); row.className = 'row';
+  row.appendChild(field('№ маршрута', d.data.no, function(v){ mutateHeader(d.index, function(dd){ dd.no = v.trim(); }); }));
+  row.appendChild(field('Название', d.data.name, function(v){ mutateHeader(d.index, function(dd){ dd.name = v; }); }));
+  g1.appendChild(row);
+
+  var g2 = group('Конечные пункты (подписи табло, # = начальная/конечная)');
+  var labels = d.body.filter(function(i){ return doc.lines[i].kind === 'endpoint'; });
+  labels.forEach(function(lineIdx){
+    var txt = doc.lines[lineIdx].raw.slice(1);
+    var row = document.createElement('div'); row.className = 'row';
+    var f = field('Подпись', txt, function(v){
+      snapshot();
+      var L = doc.lines[lineIdx];
+      L.sub = { kind:'other', text:v };
+      regenLine(L);
+      reparse(); markDirty(); render();
+    });
+    f.style.flex = '1';
+    var b = document.createElement('button'); b.className = 'danger'; b.textContent = '×';
+    b.onclick = function(){ snapshot(); doc.lines.splice(lineIdx,1); reparse(); markDirty(); render(); };
+    row.appendChild(f); row.appendChild(b);
+    g2.appendChild(row);
+  });
+  var add = document.createElement('button'); add.textContent = '+ подпись';
+  add.onclick = function(){ snapshot(); doc.lines.splice(d.index + 1 + labels.length, 0, { raw:'#Новая конечная' }); reparse(); markDirty(); render(); };
+  g2.appendChild(add);
+
+  box.appendChild(g1); box.appendChild(g2);
+}
+function mutateHeader(lineIdx, fn){
+  snapshot();
+  fn(doc.lines[lineIdx].data);
+  regenLine(doc.lines[lineIdx]);
+  reparse(); markDirty(); render();
+}
+function addDest(){
+  if (!doc){ alert('Сначала загрузите файл.'); return; }
+  snapshot();
+  var insertAt;
+  if (doc.dests.length){
+    var last = doc.dests[doc.dests.length - 1];
+    insertAt = (last.body.length ? last.body[last.body.length - 1] : last.index) + 1;
+  } else {
+    var si = -1; for (var i = 0; i < doc.lines.length; i++){ if (doc.lines[i].kind === 'specialHeader'){ si = i; break; } }
+    if (si < 0){ for (var j = doc.lines.length - 1; j >= 0; j--){ if (doc.lines[j].kind === 'tilde'){ si = j + 1; break; } } }
+    insertAt = si >= 0 ? si : doc.lines.length;
+  }
+  doc.lines.splice(insertAt, 0, { raw:'|NEW^Маршрут №NEW' }, { raw:'#Новая конечная' });
+  reparse(); markDirty();
+  selDest = doc.dests.length - 1;
+  render();
+}
+function deleteDest(){
+  if (!doc || !doc.dests.length) return;
+  if (!confirm('Удалить блок конечных?')) return;
+  snapshot();
+  var d = doc.dests[selDest];
+  var del = {}; del[d.index] = 1; d.body.forEach(function(i){ del[i] = 1; });
+  setLines(currentRaws().filter(function(x, i){ return !del[i]; })); markDirty();
+}
+
+function renderSpecialList(){
+  var list = $('#specialList'); list.innerHTML = '';
+  for (var i = 0; i < doc.specials.length; i++){
+    (function(idx){
+      var d = doc.specials[idx];
+      var li = document.createElement('li');
+      li.textContent = d.data.name.trim() || '(без имени)';
+      if (idx === selSpecial) li.classList.add('sel');
+      li.onclick = function(){ selSpecial = idx; renderSpecialList(); renderSpecialEditor(); };
+      list.appendChild(li);
+    })(i);
+  }
+  if (!doc.specials.length) list.innerHTML = '<li class="muted">нет спецрежимов</li>';
+}
+function renderSpecialEditor(){
+  var box = $('#specialEditor'); box.innerHTML = '';
+  var d = doc.specials[selSpecial];
+  if (!d){ box.innerHTML = '<div class="empty">Выберите спецрежим</div>'; return; }
+  var g1 = group('Заголовок спецрежима');
+  g1.appendChild(field('Имя (|@-Имя)', d.data.name, function(v){ mutateHeader(d.index, function(dd){ dd.name = v; }); }));
+
+  var g2 = group('Записи');
+  d.body.forEach(function(lineIdx){
+    var L = doc.lines[lineIdx];
+    var row = document.createElement('div'); row.className = 'row';
+    var eLbl = document.createElement('label'); eLbl.className = 'chk'; eLbl.title = 'начальная/конечная (маркер #)';
+    var eCb = document.createElement('input'); eCb.type = 'checkbox'; eCb.checked = isEndpoint(L);
+    (function(li, cb){ cb.onchange = function(){ setEndpointLine(li, cb.checked); }; })(lineIdx, eCb);
+    eLbl.appendChild(eCb); eLbl.appendChild(document.createTextNode('Н/К'));
+    row.appendChild(eLbl);
+    if (L.kind === 'endpoint' && L.sub && L.sub.kind === 'stop'){
+      var txt = L.raw.slice(1);
+      var f = field('Строка', txt, function(v){ snapshot(); var LL = doc.lines[lineIdx]; LL.sub = { kind:'other', text:v }; regenLine(LL); reparse(); markDirty(); render(); });
+      f.style.flex = '1'; row.appendChild(f);
+    } else if (L.kind === 'specialEntry'){
+      var f1 = field('Имя', L.data.name, function(v){ snapshot(); doc.lines[lineIdx].data.name = v; regenLine(doc.lines[lineIdx]); reparse(); markDirty(); render(); });
+      var f2 = field('Токены (фаза1;фаза2)', L.data.phases.map(function(p){ return p.join(','); }).join(';'), function(v){
+        snapshot();
+        doc.lines[lineIdx].data.phases = v.split(';').map(function(ph){ return ph.split(',').map(function(t){ return t.trim(); }); });
+        regenLine(doc.lines[lineIdx]); reparse(); markDirty(); render();
+      });
+      f1.style.flex = '1'; f2.style.flex = '1'; row.appendChild(f1); row.appendChild(f2);
+    } else {
+      var txt = L.raw;
+      var f = field('Строка', txt, function(v){ snapshot(); doc.lines[lineIdx].raw = v; reparse(); markDirty(); render(); });
+      f.style.flex = '1'; row.appendChild(f);
+    }
+    var b = document.createElement('button'); b.className = 'danger'; b.textContent = '×';
+    b.onclick = function(){ snapshot(); doc.lines.splice(lineIdx,1); reparse(); markDirty(); render(); };
+    row.appendChild(b);
+    g2.appendChild(row);
+  });
+  var acts = document.createElement('div'); acts.className = 'actions';
+  var addC = document.createElement('button'); addC.textContent = '+ строка';
+  addC.onclick = function(){ snapshot(); doc.lines.splice(d.index + 1, 0, { raw:'#Новая строка' }); reparse(); markDirty(); render(); };
+  var addE = document.createElement('button'); addE.textContent = '+ объявление';
+  addE.onclick = function(){ snapshot(); doc.lines.splice(d.index + 1, 0, { raw:'объявление^объявление\\Колокол,объявление' }); reparse(); markDirty(); render(); };
+  acts.appendChild(addC); acts.appendChild(addE);
+  g2.appendChild(acts);
+
+  box.appendChild(g1); box.appendChild(g2);
+}
+function addSpecial(){
+  if (!doc){ alert('Сначала загрузите файл.'); return; }
+  snapshot();
+  var insertAt = doc.lines.length;
+  doc.lines.splice(insertAt, 0, { raw:'|@-НОВЫЙ' }, { raw:'#@НОВЫЙ' });
+  reparse(); markDirty();
+  selSpecial = doc.specials.length - 1;
+  render();
+}
+function deleteSpecial(){
+  if (!doc || !doc.specials.length) return;
+  if (!confirm('Удалить спецрежим?')) return;
+  snapshot();
+  var d = doc.specials[selSpecial];
+  var del = {}; del[d.index] = 1; d.body.forEach(function(i){ del[i] = 1; });
+  setLines(currentRaws().filter(function(x, i){ return !del[i]; })); markDirty();
+}
+
+function render(){
+  if (!doc){
+    $('#routeList').innerHTML = '<li class="muted">файл не загружен</li>';
+    $('#stopList').innerHTML = '<li class="muted">—</li>';
+    $('#stopEditor').innerHTML = '<div class="empty">Импортируйте p.txt</div>';
+    $('#destList').innerHTML = '<li class="muted">—</li>';
+    $('#destEditor').innerHTML = '<div class="empty">Импортируйте p.txt</div>';
+    $('#specialList').innerHTML = '<li class="muted">—</li>';
+    $('#specialEditor').innerHTML = '<div class="empty">Импортируйте p.txt</div>';
+    updateStatus(); updateUndoButtons();
+    return;
+  }
+  renderRoutes(); renderStops(); renderStopEditor();
+  renderDestList(); renderDestEditor();
+  renderSpecialList(); renderSpecialEditor();
+  updateStatus();
+}
+
+function validate(){
+  var res = [];
+  if (!doc) return res;
+  var i, L, d;
+  for (i = 0; i < doc.lines.length; i++){
+    L = doc.lines[i];
+    if (isStopLine(L)){
+      d = getStopData(L);
+      for (var c = 0; c < 2; c++){
+        var la = parseFloat(d.c[c][0]), lo = parseFloat(d.c[c][1]);
+        if (isNaN(la) || isNaN(lo)) res.push({ sev:'error', line:i, msg:'Некорректные координаты: ' + d.name });
+        else {
+          if (la < -90 || la > 90) res.push({ sev:'error', line:i, msg:'Широта вне диапазона: ' + d.name });
+          if (lo < -180 || lo > 180) res.push({ sev:'error', line:i, msg:'Долгота вне диапазона: ' + d.name });
+        }
+      }
+      if (!d.name || !d.name.trim()) res.push({ sev:'warn', line:i, msg:'Пустое имя остановки' });
+      if (d.phases.length > 1 && d.phases[1].join('').trim() === '') res.push({ sev:'info', line:i, msg:'Пустая фаза 2 (висячий "\\): ' + d.name });
+    }
+    if (L.kind === 'other') res.push({ sev:'info', line:i, msg:'Нераспознанная строка: ' + L.raw.slice(0, 50) });
+  }
+  var seen = {};
+  doc.routes.forEach(function(r){
+    var id = (r.data.id || '').trim();
+    if (!id) res.push({ sev:'warn', line:r.index, msg:'Пустой номер маршрута' });
+    seen[id] = (seen[id] || 0) + 1;
+    var st = routeStops(r);
+    if (st.length){
+      var epCount = 0;
+      for (var k = 0; k < st.length; k++){ if (isEndpoint(doc.lines[st[k]])) epCount++; }
+      if (!isEndpoint(doc.lines[st[0]])) res.push({ sev:'warn', line:r.index, msg:'Маршрут №' + (id || '?') + ': нет маркера # на начальной остановке (endpoint: ' + epCount + ')' });
+      else if (epCount < 2) res.push({ sev:'info', line:r.index, msg:'Маршрут №' + (id || '?') + ': только один endpoint — нет маркера # на конечной/развороте' });
+    }
+  });
+  Object.keys(seen).forEach(function(id){ if (seen[id] > 1) res.push({ sev:'warn', line:-1, msg:'Дубликат маршрута №' + id + ' (' + seen[id] + ' шт.)' }); });
+  var dseen = {};
+  doc.dests.forEach(function(r){ var no = (r.data.no || '').trim(); dseen[no] = (dseen[no] || 0) + 1; });
+  Object.keys(dseen).forEach(function(no){ if (dseen[no] > 1) res.push({ sev:'warn', line:-1, msg:'Дубликат блока конечных №' + no + ' (' + dseen[no] + ' шт.)' }); });
+
+  if (sFiles){
+    var chk = function(phases, line, who){
+      phases.forEach(function(ph){ ph.forEach(function(t){ if (t && !sFiles.has(t)) res.push({ sev:'warn', line:line, msg:'Нет файла s\\' + t + '.wav  (' + who + ')' }); }); });
+    };
+    doc.lines.forEach(function(LL, idx){
+      if (isStopLine(LL)) chk(getStopData(LL).phases, idx, getStopData(LL).name);
+      else if (LL.kind === 'specialEntry') chk(LL.data.phases, idx, LL.data.name);
+    });
+  }
+  var typos = { 'опдата':1, 'билед':1, 'блет':1 };
+  doc.lines.forEach(function(LL, idx){
+    var phases = isStopLine(LL) ? getStopData(LL).phases : (LL.kind === 'specialEntry' ? LL.data.phases : null);
+    if (!phases) return;
+    phases.forEach(function(ph){ ph.forEach(function(t){
+      if (typos[t] || /[А-Яа-я]\.(билет|оплата|льготы)$/.test(t)) res.push({ sev:'warn', line:idx, msg:'Подозрительный токен: ' + t });
+    }); });
+  });
+  doc.dests.forEach(function(dd){
+    var no = (dd.data.no || '').trim();
+    var route = null;
+    for (var k = 0; k < doc.routes.length; k++){ if ((doc.routes[k].data.id || '').trim() === no){ route = doc.routes[k]; break; } }
+    var labels = dd.body.filter(function(x){ return doc.lines[x].kind === 'endpoint'; }).map(function(x){ return doc.lines[x].raw.slice(1).trim(); });
+    labels.forEach(function(lb){
+      if (!route){ res.push({ sev:'warn', line:dd.index, msg:'Нет маршрута №' + no + ' для конечной "' + lb + '"' }); return; }
+      var found = route.body.some(function(x){
+        var LL = doc.lines[x]; if (!isStopLine(LL)) return false;
+        var s = getStopData(LL);
+        if (!s.phases.some(function(ph){ return ph.indexOf('Конечная') >= 0; })) return false;
+        return norm(s.name).indexOf(norm(lb)) >= 0 || norm(lb).indexOf(norm(s.name)) >= 0;
+      });
+      if (!found) res.push({ sev:'warn', line:dd.index, msg:'Конечная "' + lb + '" не найдена среди остановок с токеном "Конечная" маршрута №' + no });
+    });
+  });
+  return res;
+}
+function renderReport(res){
+  var box = $('#report');
+  var summary = $('#reportSummary');
+  var ce = 0, cw = 0, ci = 0;
+  res.forEach(function(r){ if (r.sev === 'error') ce++; else if (r.sev === 'warn') cw++; else ci++; });
+  summary.innerHTML = '<span>Всего: <b>' + res.length + '</b></span><span>ошибок: <b>' + ce + '</b></span><span>предупреждений: <b>' + cw + '</b></span><span>инфо: <b>' + ci + '</b></span>';
+  if (!res.length){ box.innerHTML = '<div class="empty">Проблем не найдено.</div>'; return; }
+  var t = document.createElement('table'); t.className = 'find';
+  var head = document.createElement('thead');
+  head.innerHTML = '<tr><th>Тип</th><th>Строка</th><th>Описание</th></tr>';
+  t.appendChild(head);
+  var tb = document.createElement('tbody');
+  res.forEach(function(r){
+    var tr = document.createElement('tr');
+    if (r.line >= 0){ tr.className = 'clickable'; tr.onclick = function(){ jumpToLine(r.line); }; }
+    var names = { error:'Ошибка', warn:'Предупреждение', info:'Инфо' };
+    tr.innerHTML = '<td><span class="sev ' + r.sev + '">' + names[r.sev] + '</span></td><td>' + (r.line >= 0 ? (r.line + 1) : '—') + '</td><td>' + escapeHtml(r.msg) + '</td>';
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  box.innerHTML = ''; box.appendChild(t);
+}
+function jumpToLine(line){
+  switchTab('routes');
+  for (var ri = 0; ri < doc.routes.length; ri++){
+    var r = doc.routes[ri];
+    if (line === r.index || r.body.indexOf(line) >= 0){
+      selRoute = ri;
+      var stops = routeStops(r);
+      selStop = Math.max(0, stops.indexOf(line));
+      if (stops.indexOf(line) < 0) selStop = 0;
+      render();
+      return;
+    }
+  }
+  for (var di = 0; di < doc.dests.length; di++){ if (doc.dests[di].index === line || doc.dests[di].body.indexOf(line) >= 0){ selDest = di; switchTab('dest'); render(); return; } }
+  for (var si = 0; si < doc.specials.length; si++){ if (doc.specials[si].index === line || doc.specials[si].body.indexOf(line) >= 0){ selSpecial = si; switchTab('special'); render(); return; } }
+}
+function runValidate(){
+  var res = validate();
+  renderReport(res);
+  switchTab('report');
+}
+
+function importText(text, name){
+  var raws = text.split(/\r\n|\n/);
+  undoStack.length = 0; redoStack.length = 0;
+  fileName = name || 'p.txt';
+  setLines(raws);
+  dirty = false; updateStatus();
+}
+function exportP(){
+  if (!doc){ alert('Нечего экспортировать.'); return; }
+  var text = doc.lines.map(function(l){ return l.raw; }).join('\r\n');
+  var bytes = encodeCp1251(text);
+  var blob = new Blob([bytes], { type:'text/plain;charset=windows-1251' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'p.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+  dirty = false; updateStatus();
+}
+function clearScope(scope){
+  if (!doc){ alert('Нечего очищать.'); return; }
+  var names = { all:'всё', routes:'маршруты', dest:'конечные', special:'спецрежимы' };
+  if (!confirm('Очистить ' + names[scope] + '? Действие можно отменить кнопкой «Отменить».')) return;
+  snapshot();
+  if (scope === 'all'){ setLines(['']); markDirty(); return; }
+  var del = {};
+  var blocks = scope === 'routes' ? doc.routes : (scope === 'dest' ? doc.dests : doc.specials);
+  blocks.forEach(function(r){ del[r.index] = 1; r.body.forEach(function(i){ del[i] = 1; }); });
+  setLines(currentRaws().filter(function(x, i){ return !del[i]; }));
+  markDirty();
+}
+function loadS(files){
+  sFiles = new Set();
+  for (var i = 0; i < files.length; i++){
+    var n = files[i].name;
+    if (/\.wav$/i.test(n)) sFiles.add(n.replace(/\.[^.]+$/, ''));
+  }
+  var dl = $('#tokenList'); dl.innerHTML = '';
+  sFiles.forEach(function(t){ var o = document.createElement('option'); o.value = t; dl.appendChild(o); });
+  updateStatus();
+  alert('Загружено аудиофайлов: ' + sFiles.size);
+}
+function switchTab(name){
+  var tabs = document.querySelectorAll('nav.tabs button');
+  for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab') === name);
+  var secs = ['routes','dest','special','report'];
+  for (var j = 0; j < secs.length; j++){ var el = $('#tab-' + secs[j]); if (el) el.classList.toggle('active', secs[j] === name); }
+}
+
+function bind(){
+  $('#btnImport').onclick = function(){ $('#fileInput').click(); };
+  $('#fileInput').onchange = function(e){
+    var f = e.target.files[0]; if (!f) return;
+    if (doc && dirty && !confirm('Текущие изменения не сохранены. Заменить данные?')) return;
+    var r = new FileReader();
+    r.onload = function(){ importText(decodeCp1251(r.result), f.name); };
+    r.readAsArrayBuffer(f);
+    e.target.value = '';
+  };
+  $('#btnExport').onclick = exportP;
+  $('#btnS').onclick = function(){ $('#dirInput').click(); };
+  $('#dirInput').onchange = function(e){ if (e.target.files.length) loadS(e.target.files); e.target.value = ''; };
+  $('#btnValidate').onclick = runValidate;
+  $('#btnUndo').onclick = undo;
+  $('#btnRedo').onclick = redo;
+  $('#btnClear').onclick = function(){ clearScope($('#clearScope').value); };
+  $('#search').oninput = function(){ renderStops(); };
+  $('#addRoute').onclick = addRoute;
+  $('#delRoute').onclick = deleteRoute;
+  $('#addStop').onclick = addStop;
+  $('#delStop').onclick = function(){ if (doc && doc.routes.length){ var st = routeStops(doc.routes[selRoute]); if (st.length) deleteStop(st[selStop]); } };
+  $('#addDest').onclick = addDest;
+  $('#delDest').onclick = deleteDest;
+  $('#addSpecial').onclick = addSpecial;
+  $('#delSpecial').onclick = deleteSpecial;
+  var tabs = document.querySelectorAll('nav.tabs button');
+  for (var i = 0; i < tabs.length; i++){ (function(b){ b.onclick = function(){ switchTab(b.getAttribute('data-tab')); }; })(tabs[i]); }
+  window.addEventListener('beforeunload', function(e){ if (dirty){ e.preventDefault(); e.returnValue = ''; } });
+}
+
+bind();
+render();
+</script>
+</body>
+</html>
